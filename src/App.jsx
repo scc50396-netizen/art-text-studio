@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
-// 免费商用艺术字体列表
-const FONTS = [
+// 默认免费商用艺术字体列表
+const DEFAULT_FONTS = [
   { name: '思源黑体（粗犷标题）', value: 'Noto Sans SC' },
   { name: '站酷庆科黄油（科技潮流）', value: 'ZCOOL QingKe HuangYou' },
   { name: '站酷快乐体（卡通综艺）', value: 'ZCOOL KuaiLe' },
@@ -9,8 +9,8 @@ const FONTS = [
   { name: '站酷小薇体（优雅衬线）', value: 'ZCOOL XiaoWei' },
 ];
 
-// 一键切换爆款预设模板
-const PRESETS = [
+// 默认爆款预设模板
+const DEFAULT_PRESETS = [
   {
     name: '⚡ 赛博霓虹',
     config: {
@@ -100,6 +100,20 @@ const PRESETS = [
 
 export default function App() {
   const canvasRef = useRef(null);
+  const fontInputRef = useRef(null);
+  const presetInputRef = useRef(null);
+
+  // 动态字体列表与自定义预设列表（从浏览器本地缓存读取）
+  const [fonts, setFonts] = useState(DEFAULT_FONTS);
+  const [customPresets, setCustomPresets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('art_text_custom_presets');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [text, setText] = useState('创意艺术字');
   const [fontFamily, setFontFamily] = useState('Noto Sans SC');
   const [fontSize, setFontSize] = useState(100);
@@ -114,7 +128,12 @@ export default function App() {
   const [color3d, setColor3d] = useState('#5c0011');
   const [isNeon, setIsNeon] = useState(false);
 
-  // 一键应用预设模板
+  // 每次自定义预设变化时，自动保存到浏览器本地缓存
+  useEffect(() => {
+    localStorage.setItem('art_text_custom_presets', JSON.stringify(customPresets));
+  }, [customPresets]);
+
+  // 应用预设
   const applyPreset = (config) => {
     setFontFamily(config.fontFamily);
     setFontSize(config.fontSize);
@@ -130,6 +149,86 @@ export default function App() {
     setIsNeon(config.isNeon);
   };
 
+  // 【新增】导入本地字体文件 (.ttf / .otf / .woff2)
+  const handleFontUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const fontName = `CustomFont_${Date.now()}`;
+      const displayName = file.name.replace(/\.[^/.]+$/, '');
+      const buffer = await file.arrayBuffer();
+      const fontFace = new FontFace(fontName, buffer);
+      await fontFace.load();
+      document.fonts.add(fontFace);
+
+      setFonts((prev) => [...prev, { name: `📁 ${displayName}（本地）`, value: fontName }]);
+      setFontFamily(fontName);
+    } catch (err) {
+      alert('字体加载失败，请确认上传的是有效的 .ttf / .otf / .woff2 字体文件。');
+    }
+    e.target.value = '';
+  };
+
+  // 【新增】保存当前参数为新的预设按钮
+  const handleSaveCurrentPreset = () => {
+    const name = window.prompt('给这个新风格起个名字：', `我的风格 ${customPresets.length + 1}`);
+    if (!name || !name.trim()) return;
+    const newPreset = {
+      name: `⭐ ${name.trim()}`,
+      config: {
+        fontFamily, fontSize, colorStart, colorMid, colorEnd,
+        strokeColor, strokeWidth, shadowColor, shadowBlur, depth3d, color3d, isNeon,
+      },
+    };
+    setCustomPresets((prev) => [...prev, newPreset]);
+  };
+
+  // 【新增】删除自定义预设
+  const handleDeletePreset = (index) => {
+    setCustomPresets((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 【新增】导出当前所有自定义风格为 JSON 文件
+  const handleExportPresets = () => {
+    const dataToExport = customPresets.length > 0 ? customPresets : [
+      {
+        name: '⭐ 当前风格',
+        config: {
+          fontFamily, fontSize, colorStart, colorMid, colorEnd,
+          strokeColor, strokeWidth, shadowColor, shadowBlur, depth3d, color3d, isNeon,
+        },
+      },
+    ];
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `art-text-styles-${Date.now()}.json`;
+    link.click();
+  };
+
+  // 【新增】导入外部 JSON 风格文件
+  const handleImportPresets = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const imported = JSON.parse(event.target.result);
+        const list = Array.isArray(imported) ? imported : [imported];
+        const validList = list.filter((item) => item.name && item.config);
+        if (validList.length === 0) throw new Error('格式不正确');
+        setCustomPresets((prev) => [...prev, ...validList]);
+        applyPreset(validList[0].config);
+        alert(`成功导入 ${validList.length} 个风格模板！`);
+      } catch {
+        alert('导入失败：请选择正确的风格 JSON 文件。');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // 画布渲染
   useEffect(() => {
     let isCancelled = false;
 
@@ -155,11 +254,9 @@ export default function App() {
         const x = width / 2;
         const y = startY + index * lineHeight;
 
-        // 1. 绘制 3D 立体挤出层（从远到近逐层叠加）
         if (depth3d > 0) {
           for (let i = depth3d; i > 0; i--) {
             ctx.save();
-            // 仅在最底层添加投影，增强立体悬浮感
             if (i === depth3d) {
               ctx.shadowColor = shadowColor;
               ctx.shadowBlur = shadowBlur;
@@ -177,7 +274,6 @@ export default function App() {
           }
         }
 
-        // 2. 绘制外发光 / 霓虹双层光晕与主描边
         ctx.save();
         ctx.shadowColor = shadowColor;
         ctx.shadowBlur = shadowBlur;
@@ -186,7 +282,6 @@ export default function App() {
           ctx.lineWidth = strokeWidth;
           ctx.strokeStyle = strokeColor;
           ctx.strokeText(line, x, y);
-          // 霓虹模式叠加第二层强发光
           if (isNeon) {
             ctx.shadowColor = strokeColor;
             ctx.shadowBlur = shadowBlur * 0.6;
@@ -195,7 +290,6 @@ export default function App() {
         }
         ctx.restore();
 
-        // 3. 绘制三段式渐变主体（支持金属高光质感）
         const gradient = ctx.createLinearGradient(0, y - fontSize / 2, 0, y + fontSize / 2);
         gradient.addColorStop(0, colorStart);
         gradient.addColorStop(0.5, colorMid);
@@ -206,7 +300,6 @@ export default function App() {
       });
     };
 
-    // 先立刻绘制一次，等网络字体加载完毕后再自动重绘确保生效
     drawCanvas();
     if (document.fonts && document.fonts.load) {
       document.fonts.load(`900 ${fontSize}px "${fontFamily}"`).then(() => {
@@ -230,31 +323,76 @@ export default function App() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#141414', color: '#fff' }}>
       {/* 左侧控制面板 */}
-      <div style={{ width: 340, padding: 20, background: '#1f1f1f', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: '100vh', boxSizing: 'border-box' }}>
+      <div style={{ width: 350, padding: 20, background: '#1f1f1f', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: '100vh', boxSizing: 'border-box' }}>
         <h2 style={{ margin: 0, fontSize: 20 }}>艺术字生成器 Pro</h2>
 
         {/* 一键预设模板区 */}
         <div>
           <div style={{ fontSize: 13, color: '#aaa', marginBottom: 8 }}>一键套用爆款预设：</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {PRESETS.map((preset) => (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {DEFAULT_PRESETS.map((preset) => (
               <button
                 key={preset.name}
                 onClick={() => applyPreset(preset.config)}
-                style={{
-                  padding: '6px 10px',
-                  fontSize: 12,
-                  background: '#2c2c2c',
-                  color: '#fff',
-                  border: '1px solid #444',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                }}
+                style={{ padding: '6px 10px', fontSize: 12, background: '#2c2c2c', color: '#fff', border: '1px solid #444', borderRadius: 6, cursor: 'pointer' }}
               >
                 {preset.name}
               </button>
             ))}
+            {customPresets.map((preset, idx) => (
+              <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', background: '#162312', border: '1px solid #389e0d', borderRadius: 6, overflow: 'hidden' }}>
+                <button
+                  onClick={() => applyPreset(preset.config)}
+                  style={{ padding: '6px 8px', fontSize: 12, background: 'transparent', color: '#b7eb8f', border: 'none', cursor: 'pointer' }}
+                >
+                  {preset.name}
+                </button>
+                <button
+                  onClick={() => handleDeletePreset(idx)}
+                  title="删除此预设"
+                  style={{ padding: '6px 6px', fontSize: 11, background: 'transparent', color: '#ff7875', border: 'none', borderLeft: '1px solid #237804', cursor: 'pointer' }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
           </div>
+        </div>
+
+        {/* 【新增】本地导入与风格管理功能块 */}
+        <div style={{ padding: 10, background: '#262626', borderRadius: 8, border: '1px dashed #555', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: '#ccc', fontWeight: 'bold' }}>自定义导入与保存</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => fontInputRef.current.click()}
+              style={{ flex: 1, padding: '6px 8px', fontSize: 12, background: '#303030', color: '#69c0ff', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
+            >
+              + 导入本地字体
+            </button>
+            <button
+              onClick={handleSaveCurrentPreset}
+              style={{ flex: 1, padding: '6px 8px', fontSize: 12, background: '#303030', color: '#95de64', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
+            >
+              ★ 存为新预设
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              onClick={() => presetInputRef.current.click()}
+              style={{ flex: 1, padding: '6px 8px', fontSize: 12, background: '#303030', color: '#ffd666', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
+            >
+              导入风格 (.json)
+            </button>
+            <button
+              onClick={handleExportPresets}
+              style={{ flex: 1, padding: '6px 8px', fontSize: 12, background: '#303030', color: '#d9d9d9', border: '1px solid #444', borderRadius: 4, cursor: 'pointer' }}
+            >
+              导出风格 (.json)
+            </button>
+          </div>
+          {/* 隐藏的文件选择器 */}
+          <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontUpload} style={{ display: 'none' }} />
+          <input ref={presetInputRef} type="file" accept=".json" onChange={handleImportPresets} style={{ display: 'none' }} />
         </div>
 
         <label style={{ fontSize: 13 }}>
@@ -268,13 +406,13 @@ export default function App() {
         </label>
 
         <label style={{ fontSize: 13 }}>
-          免费商用字体：
+          字体选择：
           <select
             value={fontFamily}
             onChange={(e) => setFontFamily(e.target.value)}
             style={{ width: '100%', marginTop: 6, padding: 8, background: '#2b2b2b', color: '#fff', border: '1px solid #444', borderRadius: 4 }}
           >
-            {FONTS.map((f) => (
+            {fonts.map((f) => (
               <option key={f.value} value={f.value}>
                 {f.name}
               </option>
@@ -287,7 +425,6 @@ export default function App() {
           <input type="range" min="36" max="180" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ width: '100%' }} />
         </label>
 
-        {/* 三段渐变色 */}
         <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
           <label style={{ flex: 1 }}>
             顶部色
@@ -303,7 +440,6 @@ export default function App() {
           </label>
         </div>
 
-        {/* 3D 立体厚度与颜色 */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
           <label style={{ flex: 2 }}>
             3D 立体厚度 ({depth3d}px)：
@@ -315,7 +451,6 @@ export default function App() {
           </label>
         </div>
 
-        {/* 描边设置 */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
           <label style={{ flex: 2 }}>
             描边粗细 ({strokeWidth}px)：
@@ -327,7 +462,6 @@ export default function App() {
           </label>
         </div>
 
-        {/* 阴影 / 发光设置 */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
           <label style={{ flex: 2 }}>
             发光/阴影 ({shadowBlur}px)：
