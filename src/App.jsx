@@ -1,63 +1,224 @@
 import { useState, useRef, useEffect } from 'react';
 
+// 免费商用艺术字体列表
+const FONTS = [
+  { name: '思源黑体（粗犷标题）', value: 'Noto Sans SC' },
+  { name: '站酷庆科黄油（科技潮流）', value: 'ZCOOL QingKe HuangYou' },
+  { name: '站酷快乐体（卡通综艺）', value: 'ZCOOL KuaiLe' },
+  { name: '马善政毛笔（国风书法）', value: 'Ma Shan Zheng' },
+  { name: '站酷小薇体（优雅衬线）', value: 'ZCOOL XiaoWei' },
+];
+
+// 一键切换爆款预设模板
+const PRESETS = [
+  {
+    name: '⚡ 赛博霓虹',
+    config: {
+      fontFamily: 'ZCOOL QingKe HuangYou',
+      fontSize: 105,
+      colorStart: '#ffffff',
+      colorMid: '#ffd6ff',
+      colorEnd: '#ff4dff',
+      strokeColor: '#ff00cc',
+      strokeWidth: 6,
+      shadowColor: '#00f2ff',
+      shadowBlur: 35,
+      depth3d: 0,
+      color3d: '#5900b3',
+      isNeon: true,
+    },
+  },
+  {
+    name: '✨ 奢华流金',
+    config: {
+      fontFamily: 'ZCOOL XiaoWei',
+      fontSize: 110,
+      colorStart: '#fff7d6',
+      colorMid: '#d4af37',
+      colorEnd: '#7a5200',
+      strokeColor: '#3d2800',
+      strokeWidth: 8,
+      shadowColor: '#000000',
+      shadowBlur: 20,
+      depth3d: 8,
+      color3d: '#4d3300',
+      isNeon: false,
+    },
+  },
+  {
+    name: '🧊 3D 立体波普',
+    config: {
+      fontFamily: 'ZCOOL KuaiLe',
+      fontSize: 108,
+      colorStart: '#ffec3d',
+      colorMid: '#ff9c6e',
+      colorEnd: '#ff4d4f',
+      strokeColor: '#141414',
+      strokeWidth: 14,
+      shadowColor: '#000000',
+      shadowBlur: 15,
+      depth3d: 14,
+      color3d: '#0958d9',
+      isNeon: false,
+    },
+  },
+  {
+    name: '🔥 爆款短视频',
+    config: {
+      fontFamily: 'Noto Sans SC',
+      fontSize: 100,
+      colorStart: '#fff566',
+      colorMid: '#fadb14',
+      colorEnd: '#fa8c16',
+      strokeColor: '#a8071a',
+      strokeWidth: 16,
+      shadowColor: '#000000',
+      shadowBlur: 18,
+      depth3d: 6,
+      color3d: '#5c0011',
+      isNeon: false,
+    },
+  },
+  {
+    name: '🖌️ 国风墨韵',
+    config: {
+      fontFamily: 'Ma Shan Zheng',
+      fontSize: 120,
+      colorStart: '#ffffff',
+      colorMid: '#e6e6e6',
+      colorEnd: '#bfbfbf',
+      strokeColor: '#cf1322',
+      strokeWidth: 5,
+      shadowColor: '#cf1322',
+      shadowBlur: 22,
+      depth3d: 4,
+      color3d: '#262626',
+      isNeon: false,
+    },
+  },
+];
+
 export default function App() {
   const canvasRef = useRef(null);
   const [text, setText] = useState('创意艺术字');
-  const [fontSize, setFontSize] = useState(96);
-  const [colorStart, setColorStart] = useState('#ff4d4f');
-  const [colorEnd, setColorEnd] = useState('#fadb14');
-  const [strokeColor, setStrokeColor] = useState('#1f1f1f');
-  const [strokeWidth, setStrokeWidth] = useState(12);
-  const [shadowBlur, setShadowBlur] = useState(20);
-  const [shadowColor, setShadowColor] = useState('#ff7a45');
+  const [fontFamily, setFontFamily] = useState('Noto Sans SC');
+  const [fontSize, setFontSize] = useState(100);
+  const [colorStart, setColorStart] = useState('#fff566');
+  const [colorMid, setColorMid] = useState('#fadb14');
+  const [colorEnd, setColorEnd] = useState('#fa8c16');
+  const [strokeColor, setStrokeColor] = useState('#a8071a');
+  const [strokeWidth, setStrokeWidth] = useState(16);
+  const [shadowColor, setShadowColor] = useState('#000000');
+  const [shadowBlur, setShadowBlur] = useState(18);
+  const [depth3d, setDepth3d] = useState(6);
+  const [color3d, setColor3d] = useState('#5c0011');
+  const [isNeon, setIsNeon] = useState(false);
 
-  // 每次参数变化时，重新绘制 Canvas
+  // 一键应用预设模板
+  const applyPreset = (config) => {
+    setFontFamily(config.fontFamily);
+    setFontSize(config.fontSize);
+    setColorStart(config.colorStart);
+    setColorMid(config.colorMid);
+    setColorEnd(config.colorEnd);
+    setStrokeColor(config.strokeColor);
+    setStrokeWidth(config.strokeWidth);
+    setShadowColor(config.shadowColor);
+    setShadowBlur(config.shadowBlur);
+    setDepth3d(config.depth3d);
+    setColor3d(config.color3d);
+    setIsNeon(config.isNeon);
+  };
+
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    let isCancelled = false;
 
-    // 1. 清空画布（保持透明背景）
-    ctx.clearRect(0, 0, width, height);
+    const drawCanvas = () => {
+      if (isCancelled) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
 
-    // 2. 基础排版设置
-    ctx.font = `900 ${fontSize}px "PingFang SC", "Microsoft YaHei", sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round'; // 关键：防止中文笔画拐角出现尖刺
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = `900 ${fontSize}px "${fontFamily}", "PingFang SC", "Microsoft YaHei", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
 
-    const lines = text.split('\n');
-    const lineHeight = fontSize * 1.25;
-    const startY = height / 2 - ((lines.length - 1) * lineHeight) / 2;
+      const lines = text.split('\n');
+      const lineHeight = fontSize * 1.25;
+      const startY = height / 2 - ((lines.length - 1) * lineHeight) / 2;
 
-    // 3. 创建上下渐变色
-    const gradient = ctx.createLinearGradient(0, startY - fontSize / 2, 0, startY + lines.length * lineHeight);
-    gradient.addColorStop(0, colorStart);
-    gradient.addColorStop(1, colorEnd);
+      lines.forEach((line, index) => {
+        const x = width / 2;
+        const y = startY + index * lineHeight;
 
-    lines.forEach((line, index) => {
-      const y = startY + index * lineHeight;
+        // 1. 绘制 3D 立体挤出层（从远到近逐层叠加）
+        if (depth3d > 0) {
+          for (let i = depth3d; i > 0; i--) {
+            ctx.save();
+            // 仅在最底层添加投影，增强立体悬浮感
+            if (i === depth3d) {
+              ctx.shadowColor = shadowColor;
+              ctx.shadowBlur = shadowBlur;
+              ctx.shadowOffsetX = 6;
+              ctx.shadowOffsetY = 8;
+            }
+            if (strokeWidth > 0) {
+              ctx.lineWidth = strokeWidth;
+              ctx.strokeStyle = color3d;
+              ctx.strokeText(line, x + i, y + i);
+            }
+            ctx.fillStyle = color3d;
+            ctx.fillText(line, x + i, y + i);
+            ctx.restore();
+          }
+        }
 
-      // 绘制阴影与描边
-      ctx.save();
-      ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = shadowBlur;
-      ctx.shadowOffsetY = 6;
-      if (strokeWidth > 0) {
-        ctx.lineWidth = strokeWidth;
-        ctx.strokeStyle = strokeColor;
-        ctx.strokeText(line, width / 2, y);
-      }
-      ctx.restore();
+        // 2. 绘制外发光 / 霓虹双层光晕与主描边
+        ctx.save();
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = shadowBlur;
+        ctx.shadowOffsetY = isNeon ? 0 : 6;
+        if (strokeWidth > 0) {
+          ctx.lineWidth = strokeWidth;
+          ctx.strokeStyle = strokeColor;
+          ctx.strokeText(line, x, y);
+          // 霓虹模式叠加第二层强发光
+          if (isNeon) {
+            ctx.shadowColor = strokeColor;
+            ctx.shadowBlur = shadowBlur * 0.6;
+            ctx.strokeText(line, x, y);
+          }
+        }
+        ctx.restore();
 
-      // 绘制渐变主体文字（放在描边之后，避免描边遮挡字形）
-      ctx.fillStyle = gradient;
-      ctx.fillText(line, width / 2, y);
-    });
-  }, [text, fontSize, colorStart, colorEnd, strokeColor, strokeWidth, shadowBlur, shadowColor]);
+        // 3. 绘制三段式渐变主体（支持金属高光质感）
+        const gradient = ctx.createLinearGradient(0, y - fontSize / 2, 0, y + fontSize / 2);
+        gradient.addColorStop(0, colorStart);
+        gradient.addColorStop(0.5, colorMid);
+        gradient.addColorStop(1, colorEnd);
 
-  // 导出高清透明 PNG
+        ctx.fillStyle = gradient;
+        ctx.fillText(line, x, y);
+      });
+    };
+
+    // 先立刻绘制一次，等网络字体加载完毕后再自动重绘确保生效
+    drawCanvas();
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load(`900 ${fontSize}px "${fontFamily}"`).then(() => {
+        drawCanvas();
+      });
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [text, fontFamily, fontSize, colorStart, colorMid, colorEnd, strokeColor, strokeWidth, shadowColor, shadowBlur, depth3d, color3d, isNeon]);
+
   const handleExport = () => {
     const canvas = canvasRef.current;
     const link = document.createElement('a');
@@ -68,66 +229,130 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: '#141414', color: '#fff' }}>
-      {/* 左侧参数控制面板 */}
-      <div style={{ width: 300, padding: 24, background: '#1f1f1f', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <h2 style={{ margin: 0 }}>艺术字生成器</h2>
+      {/* 左侧控制面板 */}
+      <div style={{ width: 340, padding: 20, background: '#1f1f1f', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', maxHeight: '100vh', boxSizing: 'border-box' }}>
+        <h2 style={{ margin: 0, fontSize: 20 }}>艺术字生成器 Pro</h2>
 
-        <label>
+        {/* 一键预设模板区 */}
+        <div>
+          <div style={{ fontSize: 13, color: '#aaa', marginBottom: 8 }}>一键套用爆款预设：</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => applyPreset(preset.config)}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  background: '#2c2c2c',
+                  color: '#fff',
+                  border: '1px solid #444',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                }}
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label style={{ fontSize: 13 }}>
           文字内容（支持换行）：
           <textarea
-            rows={3}
+            rows={2}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            style={{ width: '100%', marginTop: 6, padding: 8, background: '#2b2b2b', color: '#fff', border: '1px solid #444' }}
+            style={{ width: '100%', marginTop: 6, padding: 8, background: '#2b2b2b', color: '#fff', border: '1px solid #444', borderRadius: 4, boxSizing: 'border-box' }}
           />
         </label>
 
-        <label>
+        <label style={{ fontSize: 13 }}>
+          免费商用字体：
+          <select
+            value={fontFamily}
+            onChange={(e) => setFontFamily(e.target.value)}
+            style={{ width: '100%', marginTop: 6, padding: 8, background: '#2b2b2b', color: '#fff', border: '1px solid #444', borderRadius: 4 }}
+          >
+            {FONTS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ fontSize: 13 }}>
           字号 ({fontSize}px)：
           <input type="range" min="36" max="180" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} style={{ width: '100%' }} />
         </label>
 
-        <div style={{ display: 'flex', gap: 12 }}>
+        {/* 三段渐变色 */}
+        <div style={{ display: 'flex', gap: 8, fontSize: 12 }}>
           <label style={{ flex: 1 }}>
-            渐变顶部
-            <input type="color" value={colorStart} onChange={(e) => setColorStart(e.target.value)} style={{ width: '100%', height: 36 }} />
+            顶部色
+            <input type="color" value={colorStart} onChange={(e) => setColorStart(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
           </label>
           <label style={{ flex: 1 }}>
-            渐变底部
-            <input type="color" value={colorEnd} onChange={(e) => setColorEnd(e.target.value)} style={{ width: '100%', height: 36 }} />
+            中间高光
+            <input type="color" value={colorMid} onChange={(e) => setColorMid(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
+          </label>
+          <label style={{ flex: 1 }}>
+            底部色
+            <input type="color" value={colorEnd} onChange={(e) => setColorEnd(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
           </label>
         </div>
 
-        <label>
-          描边粗细 ({strokeWidth}px)：
-          <input type="range" min="0" max="30" value={strokeWidth} onChange={(e) => setStrokeWidth(Number(e.target.value))} style={{ width: '100%' }} />
-        </label>
+        {/* 3D 立体厚度与颜色 */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
+          <label style={{ flex: 2 }}>
+            3D 立体厚度 ({depth3d}px)：
+            <input type="range" min="0" max="25" value={depth3d} onChange={(e) => setDepth3d(Number(e.target.value))} style={{ width: '100%' }} />
+          </label>
+          <label style={{ flex: 1, fontSize: 12 }}>
+            立体侧边色
+            <input type="color" value={color3d} onChange={(e) => setColor3d(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
+          </label>
+        </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <label style={{ flex: 1 }}>
+        {/* 描边设置 */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
+          <label style={{ flex: 2 }}>
+            描边粗细 ({strokeWidth}px)：
+            <input type="range" min="0" max="30" value={strokeWidth} onChange={(e) => setStrokeWidth(Number(e.target.value))} style={{ width: '100%' }} />
+          </label>
+          <label style={{ flex: 1, fontSize: 12 }}>
             描边颜色
-            <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} style={{ width: '100%', height: 36 }} />
-          </label>
-          <label style={{ flex: 1 }}>
-            发光/阴影色
-            <input type="color" value={shadowColor} onChange={(e) => setShadowColor(e.target.value)} style={{ width: '100%', height: 36 }} />
+            <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
           </label>
         </div>
 
-        <label>
-          发光强度 ({shadowBlur}px)：
-          <input type="range" min="0" max="50" value={shadowBlur} onChange={(e) => setShadowBlur(Number(e.target.value))} style={{ width: '100%' }} />
+        {/* 阴影 / 发光设置 */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontSize: 13 }}>
+          <label style={{ flex: 2 }}>
+            发光/阴影 ({shadowBlur}px)：
+            <input type="range" min="0" max="50" value={shadowBlur} onChange={(e) => setShadowBlur(Number(e.target.value))} style={{ width: '100%' }} />
+          </label>
+          <label style={{ flex: 1, fontSize: 12 }}>
+            发光颜色
+            <input type="color" value={shadowColor} onChange={(e) => setShadowColor(e.target.value)} style={{ width: '100%', height: 32, marginTop: 4 }} />
+          </label>
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+          <input type="checkbox" checked={isNeon} onChange={(e) => setIsNeon(e.target.checked)} />
+          开启霓虹双层光晕模式
         </label>
 
         <button
           onClick={handleExport}
-          style={{ marginTop: 12, padding: '12px', background: '#1677ff', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 16, fontWeight: 'bold' }}
+          style={{ marginTop: 6, padding: '12px', background: '#1677ff', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 15, fontWeight: 'bold' }}
         >
-          导出透明 PNG
+          导出高清透明 PNG
         </button>
       </div>
 
-      {/* 右侧实时预览画布（棋盘格代表透明背景） */}
+      {/* 右侧预览画布 */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <canvas
           ref={canvasRef}
